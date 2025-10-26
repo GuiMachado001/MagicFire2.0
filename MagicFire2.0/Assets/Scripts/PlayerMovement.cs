@@ -5,35 +5,66 @@ public class PlayerMovement : MonoBehaviour
 {
     private PlayerControls controls;
     private Vector2 moveInput;
-    public float speed = 5f;
-    private Animator animator;
+    public float speed = 3f;
+
+    private Rigidbody2D rb;
+    private Animator anim;
+    private SpriteRenderer sprite;
+
+    private bool hasSpeedParameter = false;
+    private int speedHash;
 
     private void Awake()
     {
         controls = new PlayerControls();
-        animator = GetComponent<Animator>();
 
-        // Movimento
         controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
 
-        // Ataque
-        controls.Player.Attack.performed += ctx => Attack();
+        controls.Player.Attack.performed += ctx =>
+        {
+            if (anim != null)
+                anim.SetTrigger("Attack");
+        };
     }
 
     private void OnEnable() => controls.Player.Enable();
     private void OnDisable() => controls.Player.Disable();
 
-    void Update()
+    void Start()
     {
-        Vector3 movement = new Vector3(moveInput.x, 0, moveInput.y);
-        transform.Translate(movement * speed * Time.deltaTime);
+        rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+        sprite = GetComponent<SpriteRenderer>();
 
-        animator.SetFloat("Speed", movement.magnitude);
+        if (anim != null)
+        {
+            foreach (var p in anim.parameters)
+            {
+                if (p.type == AnimatorControllerParameterType.Float && p.name == "Speed")
+                {
+                    hasSpeedParameter = true;
+                    speedHash = Animator.StringToHash("Speed");
+                    break;
+                }
+            }
+        }
     }
 
-    void Attack()
+    void Update()
     {
-        animator.SetTrigger("Attack");
+        if (hasSpeedParameter)
+            anim.SetFloat(speedHash, Mathf.Abs(moveInput.x));
+
+        if (moveInput.x > 0.1f) sprite.flipX = false;
+        else if (moveInput.x < -0.1f) sprite.flipX = true;
+    }
+
+    void FixedUpdate()
+    {
+        if (rb != null)
+            rb.velocity = new Vector2(moveInput.x * speed, rb.velocity.y);
+        else
+            transform.Translate(new Vector3(moveInput.x, 0f, 0f) * speed * Time.fixedDeltaTime);
     }
 }
